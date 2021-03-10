@@ -20,19 +20,17 @@ class ReynerTeoStrategy(bt.Strategy):
         self.sma = bt.indicators.SimpleMovingAverage(self.data.close, period=200)
         # self.buyList = []
         # self.closeList = []
-        self.openTrades = []    # hold open trades to close if they are still open after max hold period
+        self.bar_executed = 0
 
     def log(self, txt, dt=None):
         dt = dt or self.datas[0].datetime.date(0)
         print('%s %s' % (dt.isoformat(), txt))
 
     def notify_trade(self, trade):
+        # print(trade)
         if trade.isclosed:
-        if not trade.isclosed:
-            return 
-
-        self.log('Operation Profit, Gross: %.2f, Net: %.2f' % 
-                 (trade.pnl, trade.pnlcomm))
+            self.log('Operation Profit, Gross: %.2f, Net: %.2f, barlen: %d' % 
+                 (trade.pnl, trade.pnlcomm, trade.barlen))
 
     def notify_order(self, order):
         if order.status in [order.Submitted, order.Accepted]:
@@ -54,7 +52,7 @@ class ReynerTeoStrategy(bt.Strategy):
                                 order.executed.value,
                                 order.executed.comm))
                 
-                self.bar_executed = len(self)
+                # self.bar_executed = len(self)
         elif order.status in [order.Canceled, order.Margin, order.Rejected]:
             self.log('Order Canceled/Margin/Rejected')
             # Write down: no pending order
@@ -67,7 +65,16 @@ class ReynerTeoStrategy(bt.Strategy):
         else:
             if self.data.close < self.sma or self.rsi > 45:
                 self.close()
+                self.bar_executed = 0
                 # self.sell(size=100)
+        
+            # rebalance - close all trades open for more than x bars 
+            elif self.bar_executed >= self.p.max_hold_period:
+                self.close()
+                self.bar_executed = 0
+
+            else :
+                self.bar_executed = self.bar_executed + 1 
 
 
 if __name__ == '__main__':
@@ -99,4 +106,4 @@ if __name__ == '__main__':
     print('P/L: ${}'.format(pnl))
 
     #Finally plot the end results
-    cerebro.plot(style='line')
+    # cerebro.plot(style='line')
