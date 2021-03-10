@@ -16,8 +16,8 @@ class ReynerTeoStrategy(bt.Strategy):
     )
 
     def __init__(self):
-        self.rsi = bt.indicators.RSI_SMA(self.data.close, period=10)
-        self.sma = bt.indicators.SimpleMovingAverage(self.data.close, period=200)
+        self.rsi = bt.indicators.RSI_SMA(self.data.close, period=self.p.rsi_period)
+        self.sma = bt.indicators.SimpleMovingAverage(self.data.close, period=self.p.sma_period)
         # self.buyList = []
         # self.closeList = []
         self.bar_executed = 0
@@ -60,10 +60,10 @@ class ReynerTeoStrategy(bt.Strategy):
 
     def next(self):
         if not self.position:
-            if self.data.close > self.sma and self.rsi < 30:
+            if self.data.close > self.sma and self.rsi < self.p.rsi_buy_threshold:
                 self.buy(size=100)
         else:
-            if self.data.close < self.sma or self.rsi > 45:
+            if self.data.close < self.sma or self.rsi > self.p.rsi_sell_threshold:
                 self.close()
                 self.bar_executed = 0
                 # self.sell(size=100)
@@ -84,17 +84,20 @@ if __name__ == '__main__':
     cerebro.addstrategy(ReynerTeoStrategy)
     cerebro.broker.setcommission(commission=0.0015)
     
-    ticker = 'infy.ns.csv'
-    data = bt.feeds.YahooFinanceCSVData(
-        dataname=f"data/{ticker}", 
-        name=ticker.replace('.NS.csv', '').lower(), 
-        plot=True
-        # fromdate = datetime(2016,1,1),
-        # todate = datetime(2017,1,1),
-    )
+    tickers = ['infy.ns.csv']
+    for ticker in tickers :
+        data = bt.feeds.YahooFinanceCSVData(
+            dataname=f"data/{ticker}", 
+            name=ticker.replace('.NS.csv', '').lower(), 
+            plot=False
+            # fromdate = datetime(2016,1,1),
+            # todate = datetime(2017,1,1),
+        )
 
-    #Add the data to Cerebro
-    cerebro.adddata(data)
+        #Add the data to Cerebro
+        cerebro.adddata(data)
+    
+
     cerebro.run()
 
     #Get final portfolio Value
