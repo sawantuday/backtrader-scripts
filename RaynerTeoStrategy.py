@@ -16,11 +16,13 @@ class ReynerTeoStrategy(bt.Strategy):
     )
 
     def __init__(self):
-        self.rsi = bt.indicators.RSI_SMA(self.data.close, period=self.p.rsi_period)
-        self.sma = bt.indicators.SimpleMovingAverage(self.data.close, period=self.p.sma_period)
-        # self.buyList = []
-        # self.closeList = []
-        self.bar_executed = 0
+        self.inds = dict()
+
+        for i, d in enumerate(self.datas):
+            self.inds[d._name] = dict()
+            self.inds[d._name]['sma'] = bt.indicators.SimpleMovingAverage(d, period=self.p.sma_period)
+            self.inds[d._name]['rsi'] = bt.indicators.RSI_SMA(d, period=self.p.rsi_period)
+            self.inds[d._name]['bar_executed'] = 0
 
     def log(self, txt, dt=None):
         dt = dt or self.datas[0].datetime.date(0)
@@ -35,22 +37,27 @@ class ReynerTeoStrategy(bt.Strategy):
     def notify_order(self, order):
         if order.status in [order.Submitted, order.Accepted]:
             return 
+
+        # dt, dn = self.data.datetime.datetime(0).isoformat(), order.data._name
         
         if order.status in [order.Completed]:
             if order.isbuy():
-                self.log('Buy executed, price: %.2f, cost: %.2f, comm: %.2f' % (
+                self.log('Buy executed, Ticker: %s, price: %.2f, cost: %.2f, comm: %.2f' % (
+                    order.data._name,
                     order.executed.price,
                     order.executed.value,
                     order.executed.comm,
                 ))
 
-                self.buyprice = order.executed.price
-                self.buycomm = order.executed.comm
+                # self.buyprice = order.executed.price
+                # self.buycomm = order.executed.comm
             else : # sell 
-                self.log('SELL EXECUTED, Price: %.2f, Cost: %.2f, Comm %.2f' %
-                                (order.executed.price,
-                                order.executed.value,
-                                order.executed.comm))
+                self.log('SELL EXECUTED, Ticker: %s, Price: %.2f, Cost: %.2f, Comm %.2f' % (
+                    order.data._name,
+                    order.executed.price,
+                    order.executed.value,
+                    order.executed.comm
+                ))
                 
                 # self.bar_executed = len(self)
         elif order.status in [order.Canceled, order.Margin, order.Rejected]:
@@ -59,22 +66,25 @@ class ReynerTeoStrategy(bt.Strategy):
             self.order = None
 
     def next(self):
-        if not self.position:
-            if self.data.close > self.sma and self.rsi < self.p.rsi_buy_threshold:
-                self.buy(size=100)
-        else:
-            if self.data.close < self.sma or self.rsi > self.p.rsi_sell_threshold:
-                self.close()
-                self.bar_executed = 0
-                # self.sell(size=100)
-        
-            # rebalance - close all trades open for more than x bars 
-            elif self.bar_executed >= self.p.max_hold_period:
-                self.close()
-                self.bar_executed = 0
+        for i, d in enumerate(self.datas):
+            position = self.getposition(d).size # get position size 
+            dn = d._name
 
-            else :
-                self.bar_executed = self.bar_executed + 1 
+            if not position:
+                if d.close > self.inds[dn]['sma'] and self.inds[dn]['rsi'] < self.p.rsi_buy_threshold:
+                    self.buy(data=d, size=30)
+            else:
+                if d.close < self.inds[dn]['sma'] or self.inds[dn]['rsi'] > self.p.rsi_sell_threshold:
+                    self.sell(data=d, size=30)
+                    self.inds[dn]['bar_executed'] = 0
+
+                elif self.inds[dn]['bar_executed'] >= self.p.max_hold_period:
+                    self.log('Time limit excided on, Ticker: %s' % (dn))
+                    self.sell(data=d, size=30)
+                    self.inds[dn]['bar_executed'] = 0
+
+                else :
+                    self.inds[dn]['bar_executed'] = self.inds[dn]['bar_executed'] + 1
 
 
 if __name__ == '__main__':
@@ -84,11 +94,15 @@ if __name__ == '__main__':
     cerebro.addstrategy(ReynerTeoStrategy)
     cerebro.broker.setcommission(commission=0.0015)
     
-    tickers = ['infy.ns.csv']
+    tickers = [
+        # 'infy.ns.csv', 'acc.ns.csv', 'icicibank.ns.csv', 'axisbank.ns.csv', 'kotakbank.ns.csv'
+        'tcs.ns.csv'
+    ]
+    
     for ticker in tickers :
         data = bt.feeds.YahooFinanceCSVData(
             dataname=f"data/{ticker}", 
-            name=ticker.replace('.NS.csv', '').lower(), 
+            name=ticker.replace('.ns.csv', '').lower(), 
             plot=False
             # fromdate = datetime(2016,1,1),
             # todate = datetime(2017,1,1),
