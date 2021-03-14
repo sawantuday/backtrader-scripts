@@ -87,6 +87,14 @@ class ReynerTeoStrategy(bt.Strategy):
                     self.inds[dn]['bar_executed'] = self.inds[dn]['bar_executed'] + 1
 
 
+# TODO items 
+# execute orders on next day open 
+# utilize available funds fully
+# verify max_hold_days functionality is working correctly 
+# add index or sector based additional filter 
+# https://www.backtrader.com/docu/analyzers-reference/#sqn
+# https://www.backtrader.com/docu/analyzers-reference/#tradeanalyzer
+
 if __name__ == '__main__':
     startcash = 100000
     cerebro = bt.Cerebro()
@@ -98,7 +106,7 @@ if __name__ == '__main__':
         # 'infy.ns.csv', 'acc.ns.csv', 'icicibank.ns.csv', 'axisbank.ns.csv', 'kotakbank.ns.csv'
         'tcs.ns.csv'
     ]
-    
+
     for ticker in tickers :
         data = bt.feeds.YahooFinanceCSVData(
             dataname=f"data/{ticker}", 
@@ -124,3 +132,7 @@ if __name__ == '__main__':
 
     #Finally plot the end results
     # cerebro.plot(style='line')
+
+# Reference articles or posts
+# https://community.backtrader.com/topic/1542/multi-asset-time-frame-complications-backfilling-with-ib/3
+# https://community.backtrader.com/topic/3365/multi-asset-bracket-orders
